@@ -1,0 +1,592 @@
+<title>จิ๊กซอว์เครือข่ายความร่วมมือ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;500;700&display=swap">
+<style>
+/* Layout: wide jigsaw board on the left, question card on the right; stacks to one column on phones.
+   Palette: mint-grey ground, deep teal ink, teal thread accent, marigold for "this piece next". */
+:root{
+  --font-display:'Mitr','Sarabun',"Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;
+  --font-body:'Sarabun',"Noto Sans Thai","Leelawadee UI",Tahoma,system-ui,sans-serif;
+  --bg:#eaf1ef; --surface:#f8fbfa; --ink:#11262d; --muted:#4a636c; --line:#bcd0cc;
+  --board:#d5e5e0; --board2:#e3eeeb;
+  --accent:#0b7a75; --accent-ink:#ffffff; --warm:#e6a317;
+  --good:#1c7f45; --bad:#b83a27;
+  --gs:62%; --gl:36%; --gtext:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1c21; --surface:#15282f; --ink:#e8f2f0; --muted:#9db6bd; --line:#2a434b;
+    --board:#1a3239; --board2:#223e46;
+    --accent:#3cc4bb; --accent-ink:#062321; --warm:#f5b942;
+    --good:#4fd18b; --bad:#ff8a73;
+    --gs:65%; --gl:64%; --gtext:#0b1a1e;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1c21; --surface:#15282f; --ink:#e8f2f0; --muted:#9db6bd; --line:#2a434b;
+  --board:#1a3239; --board2:#223e46;
+  --accent:#3cc4bb; --accent-ink:#062321; --warm:#f5b942;
+  --good:#4fd18b; --bad:#ff8a73;
+  --gs:65%; --gl:64%; --gtext:#0b1a1e;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font:16px/1.6 var(--font-body);
+  padding-inline:clamp(16px,3vw,40px); padding-block:20px 40px;
+}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+ 
+.app{max-width:1280px;margin-inline:auto;display:flex;flex-direction:column;gap:20px}
+ 
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.top>div{min-width:0}
+.eyebrow{margin:0;color:var(--muted);font-weight:500;font-size:.95rem}
+h1{margin:0;font:500 clamp(1.5rem,1.1rem + 1.6vw,2.4rem)/1.35 var(--font-display);text-wrap:balance}
+.lede{margin:.15rem 0 0;color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.controls label{display:flex;gap:8px;align-items:center;font-weight:500}
+select{
+  background:var(--surface);border:1.5px solid var(--line);border-radius:8px;
+  padding:.35rem .6rem;min-height:2.4rem;
+}
+select:disabled{opacity:.55}
+.btn{
+  border:1.5px solid var(--line);background:var(--surface);border-radius:8px;
+  padding:.4rem .95rem;min-height:2.4rem;cursor:pointer;font-weight:500;
+}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn.primary:hover{filter:brightness(1.06)}
+ 
+/* two columns */
+.grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+ 
+/* board */
+.board-wrap{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--board)}
+#board{display:block;width:100%;height:auto}
+.board-bg{fill:var(--board)}
+.slot-shape{fill:var(--board2);stroke:var(--muted);stroke-opacity:.5;stroke-width:3;stroke-dasharray:9 7;cursor:pointer}
+.slot:hover .slot-shape{fill:var(--surface)}
+.slot.done{display:none}
+.slot-num{font-family:var(--font-display);font-size:84px;fill:var(--muted);fill-opacity:.42;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.cur-shape{fill:var(--warm);fill-opacity:.2;stroke:var(--warm);stroke-width:6;pointer-events:none;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{fill-opacity:.1}50%{fill-opacity:.32}}
+.piece{transform-box:fill-box;transform-origin:center;opacity:0;pointer-events:none}
+.piece.on{opacity:1}
+.piece.fresh{animation:drop .75s cubic-bezier(.2,.8,.2,1) both}
+@keyframes drop{
+  0%{opacity:0;transform:translateY(-80px) rotate(-5deg) scale(1.12)}
+  55%{opacity:1}
+  100%{opacity:1;transform:none}
+}
+.seam{fill:none;stroke:#0f2a33;stroke-opacity:.38;stroke-width:2.5;transition:stroke-opacity .9s}
+.board-wrap.done .seam{stroke-opacity:0}
+/* picture text */
+.lbl{font-family:var(--font-body);font-weight:700;font-size:26px;text-anchor:middle;fill:#11262d;paint-order:stroke;stroke:#e8f3ef;stroke-width:7px;stroke-linejoin:round}
+.rib{font-family:var(--font-display);font-size:23px;fill:#ffffff;text-anchor:middle;dominant-baseline:central}
+ 
+/* progress + groups */
+.row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.count{font:500 1.05rem var(--font-display);margin-right:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  width:2.4rem;height:2.4rem;border-radius:50%;border:1.5px solid var(--line);
+  background:var(--surface);font-family:var(--font-display);cursor:pointer;padding:0;
+  font-variant-numeric:tabular-nums;
+}
+.chip:hover{border-color:var(--accent)}
+.chip.done{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.cur{outline:3px solid var(--warm);outline-offset:2px}
+.gtitle{margin:0;color:var(--muted);font-weight:500;font-size:.95rem}
+.gscore{display:flex;flex-wrap:wrap;gap:8px}
+.gchip{
+  display:inline-flex;gap:8px;align-items:center;padding:.2rem .8rem .2rem .55rem;
+  border:1.5px solid var(--line);border-radius:999px;background:var(--surface);font-weight:500;
+}
+.gchip b{font-variant-numeric:tabular-nums}
+.gchip.now{
+  border-color:hsl(var(--h) var(--gs) var(--gl));
+  box-shadow:0 0 0 3px hsl(var(--h) var(--gs) var(--gl) / .3);
+}
+.gdot{width:.85rem;height:.85rem;border-radius:50%;background:hsl(var(--h) var(--gs) var(--gl));flex:none}
+ 
+/* question card */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:clamp(16px,2vw,24px);display:flex;flex-direction:column;gap:14px;min-width:0}
+.qhead{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.qno{font:500 1.35rem var(--font-display)}
+.qno small{font:500 .95rem var(--font-body);color:var(--muted)}
+.turn{background:hsl(var(--h) var(--gs) var(--gl));color:var(--gtext);padding:.15rem .9rem;border-radius:999px;font-weight:700}
+.helper{margin:-6px 0 0;color:var(--muted);font-size:.95rem}
+.qtext{margin:0;font:700 clamp(1.2rem,1rem + .9vw,1.6rem)/1.55 var(--font-body);text-wrap:pretty}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;
+  width:100%;text-align:left;padding:.7rem .9rem;cursor:pointer;
+  background:var(--surface);border:1.5px solid var(--line);border-radius:10px;
+  color:var(--ink);font-size:1.08rem;line-height:1.5;
+}
+.opt:hover:not(:disabled){border-color:var(--accent);background:var(--board2)}
+.opt .key{
+  width:2.1rem;height:2.1rem;border-radius:8px;background:var(--board);
+  display:grid;place-items:center;font:500 1rem var(--font-display);
+}
+.opt .mark{font-weight:700;min-width:1ch}
+.opt:disabled{cursor:default}
+.opt.wrong{
+  border-color:var(--bad);color:var(--muted);
+  background:color-mix(in srgb,var(--bad) 9%,var(--surface));
+}
+.opt.wrong .txt{text-decoration:line-through;text-decoration-thickness:1.5px}
+.opt.wrong .mark{color:var(--bad)}
+.opt.right{
+  border-color:var(--good);
+  background:color-mix(in srgb,var(--good) 14%,var(--surface));
+}
+.opt.right .mark{color:var(--good)}
+.opt.right .key{background:var(--good);color:var(--surface)}
+.opt.dim{opacity:.55}
+.opt.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.fb{min-height:1.6em;margin:0;font-weight:700}
+.fb.good{color:var(--good)}
+.fb.bad{color:var(--bad)}
+.fb .hint{display:block;font-weight:500;color:var(--ink);margin-top:2px}
+.why{
+  border:1.5px dashed var(--accent);border-radius:10px;padding:12px 14px;
+  background:color-mix(in srgb,var(--accent) 8%,var(--surface));
+}
+.why strong{display:block;font-family:var(--font-display);font-weight:500;margin-bottom:2px}
+.why p{margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.actions .grow{flex:1}
+ 
+/* finale */
+.finale h2{margin:0;font:500 clamp(1.35rem,1.1rem + 1vw,1.9rem)/1.4 var(--font-display);text-wrap:balance}
+.stats{display:flex;flex-wrap:wrap;gap:10px 28px;margin:0;padding:0;list-style:none}
+.stats li{display:flex;flex-direction:column}
+.stats .n{font:500 2rem/1.2 var(--font-display);color:var(--accent);font-variant-numeric:tabular-nums}
+.stats .t{color:var(--muted);font-size:.95rem}
+.reflect{border-left:5px solid var(--warm);padding:4px 0 4px 14px}
+.reflect p{margin:0}
+.reflect strong{font-family:var(--font-display);font-weight:500}
+ 
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+ 
+<main class="app">
+  <header class="top">
+    <div>
+      <p class="eyebrow">เกมห้องเรียน เล่นพร้อมกันทั้งห้อง</p>
+      <h1>จิ๊กซอว์เครือข่ายความร่วมมือ</h1>
+      <p class="lede">ตอบถูก 1 ข้อ ได้ต่อจิ๊กซอว์ 1 ชิ้น ตอบครบ 10 ข้อ ภาพจะสมบูรณ์</p>
+    </div>
+    <div class="controls">
+      <label for="gcount">จำนวนกลุ่ม
+        <select id="gcount" title="เปลี่ยนจำนวนกลุ่มได้ก่อนเริ่มเล่น">
+          <option>2</option><option>3</option><option>4</option><option selected>5</option>
+          <option>6</option><option>7</option><option>8</option>
+        </select>
+      </label>
+      <button class="btn" id="reset" type="button">เริ่มใหม่</button>
+    </div>
+  </header>
+ 
+  <div class="grid">
+    <section class="col" aria-label="กระดานจิ๊กซอว์">
+      <div class="board-wrap" id="boardwrap">
+        <svg id="board" viewBox="0 0 1000 560" role="img" aria-label="กระดานจิ๊กซอว์ภาพเครือข่ายความร่วมมือของโรงเรียน แบ่งเป็น 10 ชิ้น">
+          <defs>
+            <g id="pic">
+              <rect width="1000" height="560" fill="#cfe6e0"/>
+              <circle cx="500" cy="300" r="150" fill="#f7c04a"/>
+              <path d="M0 380 Q240 320 480 370 T1000 350 V560 H0Z" fill="#7cc0a4"/>
+              <path d="M0 450 Q300 405 560 440 T1000 425 V560 H0Z" fill="#2f8571"/>
+              <g stroke="#0b6f6a" stroke-width="4" fill="none" stroke-linecap="round" opacity=".92">
+                <line x1="500" y1="300" x2="150" y2="120"/>
+                <line x1="500" y1="300" x2="370" y2="85"/>
+                <line x1="500" y1="300" x2="630" y2="85"/>
+                <line x1="500" y1="300" x2="850" y2="120"/>
+                <line x1="500" y1="300" x2="130" y2="380"/>
+                <line x1="500" y1="300" x2="310" y2="410"/>
+                <line x1="500" y1="300" x2="690" y2="410"/>
+                <line x1="500" y1="300" x2="870" y2="380"/>
+                <polyline points="150,120 370,85 630,85 850,120 870,380 690,410 310,410 130,380 150,120"/>
+                <line x1="150" y1="120" x2="310" y2="410"/>
+                <line x1="850" y1="120" x2="690" y2="410"/>
+              </g>
+              <g fill="#f0a81e" stroke="#0b6f6a" stroke-width="2">
+                <circle cx="325" cy="210" r="7"/><circle cx="435" cy="192" r="7"/>
+                <circle cx="565" cy="192" r="7"/><circle cx="675" cy="210" r="7"/>
+                <circle cx="315" cy="340" r="7"/><circle cx="405" cy="355" r="7"/>
+                <circle cx="595" cy="355" r="7"/><circle cx="685" cy="340" r="7"/>
+              </g>
+              <!-- school -->
+              <polygon points="395,296 500,222 605,296" fill="#d9533b"/>
+              <rect x="418" y="296" width="164" height="78" fill="#fbf3e2"/>
+              <rect x="486" y="326" width="28" height="48" fill="#8a4b2d"/>
+              <rect x="440" y="318" width="26" height="26" fill="#9ed3dc"/>
+              <rect x="534" y="318" width="26" height="26" fill="#9ed3dc"/>
+              <line x1="500" y1="222" x2="500" y2="184" stroke="#11262d" stroke-width="4"/>
+              <polygon points="500,184 540,196 500,208" fill="#e4572e"/>
+              <rect x="408" y="374" width="184" height="10" fill="#11262d" opacity=".25"/>
+              <!-- partners -->
+              <g transform="translate(150 120)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#e4572e"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#e4572e"/><text class="lbl" y="82">ผู้ปกครอง</text></g>
+              <g transform="translate(370 85)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#0b7a75"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#0b7a75"/><text class="lbl" y="82">ชุมชน</text></g>
+              <g transform="translate(630 85)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#d99a0b"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#d99a0b"/><text class="lbl" y="82">ศิษย์เก่า</text></g>
+              <g transform="translate(850 120)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#3b66c4"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#3b66c4"/><text class="lbl" y="82">ภาคเอกชน</text></g>
+              <g transform="translate(130 380)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#2c8a4f"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#2c8a4f"/><text class="lbl" y="82">หน่วยงานท้องถิ่น</text></g>
+              <g transform="translate(310 410)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#e4572e"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#e4572e"/><text class="lbl" y="80">ครู</text></g>
+              <g transform="translate(690 410)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#0b7a75"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#0b7a75"/><text class="lbl" y="80">นักเรียน</text></g>
+              <g transform="translate(870 380)"><circle r="46" fill="#fff" stroke="#0b7a75" stroke-width="6"/><circle cy="-10" r="11" fill="#d99a0b"/><path d="M-22 22a22 22 0 0 1 44 0Z" fill="#d99a0b"/><text class="lbl" y="82">โรงเรียนเครือข่าย</text></g>
+              <rect x="300" y="514" width="400" height="36" rx="18" fill="#11262d"/>
+              <text class="rib" x="500" y="533">ร่วมมือกัน สร้างการเรียนรู้</text>
+            </g>
+            <g id="clips"></g>
+          </defs>
+          <rect class="board-bg" width="1000" height="560"/>
+          <g id="slots"></g>
+          <path id="cur" class="cur-shape" d=""/>
+          <g id="pieces"></g>
+        </svg>
+      </div>
+ 
+      <div class="row">
+        <span class="count" id="count">ต่อแล้ว 0 จาก 10 ชิ้น</span>
+        <div class="chips" id="chips" aria-label="เลือกข้อ"></div>
+      </div>
+      <div>
+        <p class="gtitle">ชิ้นที่แต่ละกลุ่มต่อได้</p>
+        <div class="gscore" id="gscore"></div>
+      </div>
+    </section>
+ 
+    <section class="col" aria-label="คำถาม">
+      <div class="card" id="qcard">
+        <div class="qhead" id="qhead"></div>
+        <p class="helper">กลุ่มอื่นช่วยกันคิดและเสนอความเห็นได้ แล้วให้กลุ่มที่ถึงตาเป็นผู้เลือกคำตอบ</p>
+        <p class="qtext" id="qtext"></p>
+        <div class="opts" id="opts"></div>
+        <p class="fb" id="fb" aria-live="polite"></p>
+        <div class="why" id="why" hidden></div>
+        <div class="actions">
+          <button class="btn" id="timer" type="button">ปรึกษากัน 30 วินาที</button>
+          <span class="grow"></span>
+          <button class="btn primary" id="next" type="button" hidden>ข้อถัดไป →</button>
+        </div>
+      </div>
+ 
+      <div class="card finale" id="finale" hidden></div>
+    </section>
+  </div>
+</main>
+ 
+<script>
+(function(){
+  var Q=[
+    {q:'ข้อใดอธิบายความหมายของการบริหารระบบเครือข่ายทางการศึกษาได้ถูกต้องที่สุด',
+     o:['การสั่งการจากผู้บริหารไปยังผู้ใต้บังคับบัญชา','การเชื่อมโยงบุคคลและหน่วยงานให้ทำงานร่วมกันอย่างเป็นระบบ','การบริหารงบประมาณของโรงเรียนเพียงอย่างเดียว','การจัดกิจกรรมระหว่างโรงเรียนเป็นครั้งคราว'],
+     a:1,
+     h:'คำสำคัญคือ เชื่อมโยง และ เป็นระบบ',
+     w:'การบริหารระบบเครือข่ายทางการศึกษาคือการเชื่อมโยงบุคคลและหน่วยงานให้ทำงานร่วมกันอย่างเป็นระบบ ไม่ใช่การสั่งการจากบนลงล่าง และไม่ใช่กิจกรรมที่ทำเป็นครั้งคราว'},
+    {q:'ข้อใดเป็นองค์ประกอบสำคัญของเครือข่ายที่มีประสิทธิผล',
+     o:['เป้าหมายร่วม การมีส่วนร่วม และการสื่อสาร','การแข่งขันระหว่างสมาชิก','การแยกหน้าที่ออกจากกันอย่างชัดเจนโดยไม่ต้องประสานงาน','การตัดสินใจโดยผู้นำเพียงคนเดียว'],
+     a:0,
+     h:'เครือข่ายอยู่ได้เพราะทุกฝ่ายมุ่งไปทางเดียวกันและคุยกัน',
+     w:'เครือข่ายที่มีประสิทธิผลต้องมีเป้าหมายร่วม สมาชิกมีส่วนร่วม และมีการสื่อสารระหว่างกันอย่างต่อเนื่อง'},
+    {q:'Connection ในการบริหารเครือข่ายหมายถึงข้อใด',
+     o:['การประเมินผลการดำเนินงาน','การสร้างความสัมพันธ์และเชื่อมโยงผู้เกี่ยวข้องเข้าหากัน','การแบ่งงบประมาณ','การกำหนดโครงสร้างองค์กรใหม่'],
+     a:1,
+     h:'ลองแปลคำว่า Connection เป็นภาษาไทยตรง ๆ',
+     w:'Connection คือการสร้างความสัมพันธ์และเชื่อมโยงผู้เกี่ยวข้องเข้าหากัน เป็นจุดเริ่มต้นของการสร้างเครือข่าย'},
+    {q:'Networking แตกต่างจาก Connection อย่างไร',
+     o:['Networking เน้นการสร้างความสัมพันธ์แบบเป็นระบบและต่อเนื่อง','Networking เน้นการทำงานคนเดียว','Connection มีความเป็นระบบมากกว่า Networking','ทั้งสองคำมีความหมายเหมือนกันทุกประการ'],
+     a:0,
+     h:'คิดถึงคำว่า ระบบ และ ต่อเนื่อง',
+     w:'Connection เป็นการเชื่อมโยงเบื้องต้น ส่วน Networking ต่อยอดเป็นความสัมพันธ์ที่เป็นระบบและต่อเนื่อง'},
+    {q:'ข้อใดสะท้อนแนวคิด Collaboration ได้ชัดเจนที่สุด',
+     o:['ต่างคนต่างทำงานตามหน้าที่ของตน','ร่วมคิด ร่วมตัดสินใจ ร่วมดำเนินงาน และร่วมรับผิดชอบ','รับฟังความคิดเห็นแล้วแยกกันดำเนินงาน','ให้ผู้นำเป็นผู้กำหนดทุกอย่าง'],
+     a:1,
+     h:'Collaboration คือทำไปด้วยกันตั้งแต่ต้นจนจบ',
+     w:'Collaboration คือการร่วมคิด ร่วมตัดสินใจ ร่วมดำเนินงาน และร่วมรับผิดชอบไปด้วยกัน ไม่ใช่แค่รับฟังแล้วแยกกันทำ'},
+    {q:'Shared Ownership หมายถึงข้อใด',
+     o:['การเป็นเจ้าของทรัพย์สินร่วมกัน','การแบ่งงบประมาณเท่า ๆ กัน','การที่สมาชิกมีความรู้สึกเป็นเจ้าของเป้าหมายและผลลัพธ์ร่วมกัน','การให้ผู้บริหารรับผิดชอบทั้งหมด'],
+     a:2,
+     h:'ความเป็นเจ้าของในที่นี้เป็นความรู้สึก ไม่ใช่ทรัพย์สิน',
+     w:'Shared Ownership คือสมาชิกรู้สึกเป็นเจ้าของเป้าหมายและผลลัพธ์ร่วมกัน จึงเต็มใจลงแรงและรับผิดชอบไปด้วยกัน'},
+    {q:'เหตุใด Empathy จึงสำคัญต่อการบริหารเครือข่าย',
+     o:['ช่วยให้ทุกฝ่ายทำงานเหมือนกันทั้งหมด','ช่วยให้เข้าใจความแตกต่างและข้อจำกัดของสมาชิกแต่ละฝ่าย','ช่วยลดจำนวนสมาชิกในเครือข่าย','ช่วยเพิ่มอำนาจให้ผู้บริหาร'],
+     a:1,
+     h:'Empathy คือการเข้าใจมุมมองของคนอื่น',
+     w:'Empathy ช่วยให้เข้าใจความแตกต่างและข้อจำกัดของสมาชิกแต่ละฝ่าย ทำให้ประสานงานและแบ่งบทบาทได้เหมาะสม'},
+    {q:'ข้อใดเรียงลำดับกระบวนการทำงานร่วมกันของสมาชิกเครือข่ายได้เหมาะสมที่สุด',
+     o:['ร่วมคิด → ร่วมวางแผน → ร่วมตัดสินใจ → ร่วมดำเนินงาน → ร่วมแก้ปัญหา → ร่วมรับผิดชอบผลลัพธ์','ร่วมดำเนินงาน → ร่วมคิด → ร่วมวางแผน','ร่วมประเมินผล → ร่วมคิด → ร่วมดำเนินงาน','ร่วมรับผิดชอบผลลัพธ์ → ร่วมวางแผน → ร่วมคิด'],
+     a:0,
+     h:'งานทุกอย่างเริ่มจากคิด และปิดท้ายด้วยการรับผิดชอบผลที่เกิดขึ้น',
+     w:'ลำดับที่เหมาะสมเริ่มจากร่วมคิด วางแผน ตัดสินใจ ดำเนินงาน แก้ปัญหา และจบที่การร่วมรับผิดชอบผลลัพธ์'},
+    {q:'การติดตามและประเมินผลเครือข่ายมีจุดมุ่งหมายสำคัญอย่างไร',
+     o:['เพื่อค้นหาผู้ที่ทำงานผิดพลาด','เพื่อตรวจสอบความก้าวหน้า สะท้อนผล และนำข้อมูลไปปรับปรุง','เพื่อเพิ่มเอกสารรายงาน','เพื่อควบคุมสมาชิกในเครือข่าย'],
+     a:1,
+     h:'ประเมินเพื่อพัฒนา ไม่ใช่เพื่อจับผิด',
+     w:'การติดตามและประเมินผลมีไว้ตรวจสอบความก้าวหน้า สะท้อนผล และนำข้อมูลไปปรับปรุงเครือข่ายให้ดีขึ้น'},
+    {q:'ข้อใดสะท้อนการพัฒนาเครือข่ายไปสู่ความร่วมมือที่ยั่งยืนได้ดีที่สุด',
+     o:['มีสมาชิกจำนวนมากที่สุด','จัดกิจกรรมร่วมกันปีละครั้ง','มีความสัมพันธ์ เป้าหมายร่วม การทำงานร่วมกัน การติดตามผล และการพัฒนาต่อเนื่อง','มีผู้นำที่ตัดสินใจได้รวดเร็ว'],
+     a:2,
+     h:'ความยั่งยืนต้องมีครบทั้งความสัมพันธ์ กระบวนการ และการพัฒนาต่อเนื่อง',
+     w:'ความร่วมมือที่ยั่งยืนเกิดจากความสัมพันธ์ เป้าหมายร่วม การทำงานร่วมกัน การติดตามผล และการพัฒนาอย่างต่อเนื่อง ไม่ใช่จำนวนสมาชิกหรือความเร็วของผู้นำ'}
+  ];
+  var N=Q.length, KEYS=['A','B','C','D'];
+  var HUES=[6,32,84,150,190,226,276,322];
+  var W=200,H=280,COLS=5,ROWS=2;
+ 
+  function $(id){return document.getElementById(id)}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+ 
+  /* ---------- jigsaw geometry ---------- */
+  function edgeSegs(len,s){
+    if(!s) return [['L',len,0]];
+    var c=len/2;
+    return [
+      ['L',c-20,0],
+      ['C',c-20,14,c-38,14,c-38,34],
+      ['C',c-38,56,c+38,56,c+38,34],
+      ['C',c+38,14,c+20,14,c+20,0],
+      ['L',len,0]
+    ];
+  }
+  function piecePath(c,r){
+    var x0=c*W,y0=r*H;
+    var sR=c<COLS-1?(((c+r)%2===0)?1:-1):0;
+    var sL=c>0?-((((c-1)+r)%2===0)?1:-1):0;
+    var sB=r<ROWS-1?((c%2===0)?1:-1):0;
+    var sT=r>0?-((c%2===0)?1:-1):0;
+    var edges=[
+      [[x0,y0],[1,0],[0,-1],W,sT],
+      [[x0+W,y0],[0,1],[1,0],H,sR],
+      [[x0+W,y0+H],[-1,0],[0,1],W,sB],
+      [[x0,y0+H],[0,-1],[-1,0],H,sL]
+    ];
+    var d='M'+x0+' '+y0;
+    edges.forEach(function(e){
+      var S=e[0],dv=e[1],n=e[2],len=e[3],s=e[4];
+      edgeSegs(len,s).forEach(function(seg){
+        var pts=[];
+        for(var i=1;i<seg.length;i+=2){
+          var u=seg[i],v=seg[i+1]*s;
+          pts.push((S[0]+u*dv[0]+v*n[0]).toFixed(1),(S[1]+u*dv[1]+v*n[1]).toFixed(1));
+        }
+        d+=seg[0]+pts.join(' ');
+      });
+    });
+    return d+'Z';
+  }
+ 
+  var PD=[],clips='',slots='',pieces='';
+  for(var i=0;i<N;i++){
+    var c=i%COLS,r=Math.floor(i/COLS),d=piecePath(c,r);
+    PD.push(d);
+    clips+='<clipPath id="cp'+i+'"><path d="'+d+'"/></clipPath>';
+    slots+='<g class="slot" data-i="'+i+'"><path class="slot-shape" d="'+d+'"/><text class="slot-num" x="'+(c*W+W/2)+'" y="'+(r*H+H/2)+'">'+(i+1)+'</text></g>';
+    pieces+='<g class="piece" id="pc'+i+'"><g clip-path="url(#cp'+i+')"><use href="#pic"/></g><path class="seam" d="'+d+'"/></g>';
+  }
+  $('clips').innerHTML=clips;
+  $('slots').innerHTML=slots;
+  $('pieces').innerHTML=pieces;
+ 
+  /* ---------- state ---------- */
+  function newState(G){
+    return {G:G,cur:0,solved:Q.map(function(){return false}),who:Q.map(function(){return null}),
+            tried:Q.map(function(){return []}),attempts:0,firstTry:0,finale:false};
+  }
+  var S=newState(+$('gcount').value);
+  var lastWrong=-1, tLeft=0, tHandle=null;
+ 
+  function grp(i){return i%S.G}
+  function nSolved(){return S.solved.filter(Boolean).length}
+  function gstyle(g){return '--h:'+HUES[g]}
+ 
+  /* ---------- timer ---------- */
+  var TIMER_IDLE='ปรึกษากัน 30 วินาที';
+  function timerStop(){clearInterval(tHandle);tHandle=null;tLeft=0;$('timer').textContent=TIMER_IDLE}
+  function timerTick(){
+    $('timer').textContent=tLeft>0?('กำลังปรึกษา เหลือ '+tLeft+' วินาที'):'หมดเวลาปรึกษา ตอบได้เลย';
+  }
+  function timerStart(){
+    clearInterval(tHandle);tLeft=30;timerTick();
+    tHandle=setInterval(function(){
+      tLeft--;timerTick();
+      if(tLeft<=0){clearInterval(tHandle);tHandle=null}
+    },1000);
+  }
+ 
+  /* ---------- render ---------- */
+  function renderBoard(){
+    for(var k=0;k<N;k++){
+      var p=$('pc'+k);
+      p.classList.toggle('on',S.solved[k]);
+      if(!S.solved[k]) p.classList.remove('fresh');
+    }
+    document.querySelectorAll('.slot').forEach(function(el){
+      el.classList.toggle('done',S.solved[+el.getAttribute('data-i')]);
+    });
+    var cur=$('cur');
+    cur.setAttribute('d',PD[S.cur]);
+    cur.style.display=(S.solved[S.cur]||nSolved()===N)?'none':'';
+    $('boardwrap').classList.toggle('done',nSolved()===N&&S.finale);
+  }
+  function renderProgress(){
+    $('count').textContent='ต่อแล้ว '+nSolved()+' จาก '+N+' ชิ้น';
+    var h='';
+    for(var k=0;k<N;k++){
+      h+='<button type="button" class="chip'+(S.solved[k]?' done':'')+(k===S.cur&&!S.finale?' cur':'')+'" data-i="'+k+'" aria-label="ข้อ '+(k+1)+(S.solved[k]?' ตอบแล้ว':'')+'">'+(k+1)+'</button>';
+    }
+    $('chips').innerHTML=h;
+    var counts=[];for(var g=0;g<S.G;g++)counts.push(0);
+    S.who.forEach(function(w){if(w!==null&&w<S.G)counts[w]++});
+    var nowG=(S.finale||nSolved()===N)?-1:grp(S.cur);
+    var gh='';
+    for(g=0;g<S.G;g++){
+      gh+='<span class="gchip'+(g===nowG?' now':'')+'" style="'+gstyle(g)+'"><i class="gdot"></i>กลุ่ม '+(g+1)+' <b>'+counts[g]+'</b></span>';
+    }
+    $('gscore').innerHTML=gh;
+    $('gcount').disabled=nSolved()>0;
+    $('gcount').value=String(S.G);
+  }
+  function renderQ(){
+    var i=S.cur,q=Q[i],g=grp(i),solved=S.solved[i],tried=S.tried[i];
+    $('qhead').innerHTML='<span class="qno">ข้อ '+(i+1)+' <small>จาก '+N+'</small></span><span class="turn" style="'+gstyle(g)+'">ถึงตา กลุ่ม '+(g+1)+'</span>';
+    $('qtext').textContent=q.q;
+    var h='';
+    q.o.forEach(function(text,k){
+      var cls='opt',mark='';
+      var isRight=k===q.a, isTried=tried.indexOf(k)>-1;
+      if(solved){ if(isRight){cls+=' right';mark='✓'} else cls+=' dim'; }
+      else if(isTried){cls+=' wrong';mark='✕'}
+      if(k===lastWrong&&!solved) cls+=' shake';
+      h+='<button type="button" class="'+cls+'" data-k="'+k+'"'+((solved||isTried)?' disabled':'')+'><span class="key">'+KEYS[k]+'</span><span class="txt">'+esc(text)+'</span><span class="mark">'+mark+'</span></button>';
+    });
+    $('opts').innerHTML=h;
+    lastWrong=-1;
+    var fb=$('fb');
+    if(solved){
+      fb.className='fb good';
+      fb.textContent='ถูกต้อง ต่อจิ๊กซอว์ชิ้นที่ '+(i+1)+' ได้แล้ว';
+    }else if(tried.length){
+      fb.className='fb bad';
+      fb.innerHTML='ยังไม่ใช่ ลองช่วยกันคิดอีกครั้ง<span class="hint">คำใบ้: '+esc(q.h)+'</span>';
+    }else{
+      fb.className='fb';fb.textContent='';
+    }
+    var why=$('why');
+    if(solved){
+      why.hidden=false;
+      why.innerHTML='<strong>ข้อสรุปของข้อนี้</strong><p>'+esc(q.w)+'</p>';
+    }else{why.hidden=true;why.innerHTML=''}
+    $('timer').hidden=solved;
+    var nx=$('next');
+    nx.hidden=!solved;
+    nx.textContent=nSolved()===N?'ดูสรุปผลเกม':'ข้อถัดไป →';
+  }
+  function renderFinale(){
+    var counts=[];for(var g=0;g<S.G;g++)counts.push(0);
+    S.who.forEach(function(w){if(w!==null&&w<S.G)counts[w]++});
+    $('finale').innerHTML=
+      '<h2>ภาพสมบูรณ์แล้ว ต่อครบทั้ง 10 ชิ้นเพราะทุกกลุ่มช่วยกัน</h2>'+
+      '<ul class="stats">'+
+        '<li><span class="n">'+S.firstTry+'/'+N+'</span><span class="t">ข้อที่ตอบถูกตั้งแต่ครั้งแรก</span></li>'+
+        '<li><span class="n">'+S.attempts+'</span><span class="t">จำนวนครั้งที่เลือกคำตอบทั้งหมด</span></li>'+
+        '<li><span class="n">'+S.G+'</span><span class="t">กลุ่มที่ร่วมต่อภาพ</span></li>'+
+      '</ul>'+
+      '<div class="reflect"><p><strong>ชวนคุยท้ายเกม</strong></p><p>เครือข่ายของโรงเรียนเราอยู่ที่ระดับ Connection, Networking หรือ Collaboration แล้ว และควรพัฒนาไปสู่ขั้นถัดไปอย่างไร</p></div>'+
+      '<div class="actions"><button type="button" class="btn" data-act="review">ทบทวนคำถาม</button><span class="grow"></span><button type="button" class="btn primary" data-act="again">เล่นอีกครั้ง</button></div>';
+  }
+  function render(){
+    var fin=S.finale&&nSolved()===N;
+    $('qcard').hidden=fin;
+    $('finale').hidden=!fin;
+    renderBoard();renderProgress();
+    if(fin) renderFinale(); else renderQ();
+  }
+ 
+  /* ---------- actions ---------- */
+  function answer(k){
+    var i=S.cur,q=Q[i];
+    if(S.solved[i]||S.tried[i].indexOf(k)>-1||S.finale) return;
+    S.attempts++;
+    if(k===q.a){
+      if(S.tried[i].length===0) S.firstTry++;
+      S.solved[i]=true;S.who[i]=grp(i);
+      timerStop();
+      render();
+      $('pc'+i).classList.add('fresh');
+    }else{
+      S.tried[i].push(k);lastWrong=k;
+      render();
+    }
+  }
+  function nextIdx(){
+    for(var k=1;k<=N;k++){var j=(S.cur+k)%N;if(!S.solved[j])return j}
+    return -1;
+  }
+  function next(){
+    var j=nextIdx();
+    timerStop();
+    if(j<0){S.finale=true}
+    else{S.cur=j}
+    render();
+  }
+  function jump(i){
+    S.cur=i;S.finale=false;timerStop();render();
+  }
+  function reset(){
+    timerStop();
+    S=newState(S.G);
+    render();
+  }
+ 
+  $('opts').addEventListener('click',function(e){
+    var b=e.target.closest('.opt');if(b&&!b.disabled)answer(+b.getAttribute('data-k'));
+  });
+  $('chips').addEventListener('click',function(e){
+    var b=e.target.closest('.chip');if(b)jump(+b.getAttribute('data-i'));
+  });
+  $('slots').addEventListener('click',function(e){
+    var g=e.target.closest('.slot');if(g)jump(+g.getAttribute('data-i'));
+  });
+  $('next').addEventListener('click',next);
+  $('timer').addEventListener('click',timerStart);
+  $('reset').addEventListener('click',reset);
+  $('gcount').addEventListener('change',function(){S.G=+$('gcount').value;render()});
+  $('finale').addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]');if(!b)return;
+    if(b.getAttribute('data-act')==='again')reset();else jump(0);
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.metaKey||e.ctrlKey||e.altKey)return;
+    var t=e.target;
+    if(t&&t.closest&&t.closest('select'))return;
+    if(/^[1-4]$/.test(e.key)){answer(+e.key-1)}
+    else if((e.key==='Enter'||e.key==='ArrowRight')&&!(t&&t.closest&&t.closest('button'))){
+      if(!S.finale&&S.solved[S.cur])next();
+    }
+  });
+ 
+  /* ---------- start (keeps game state if the page is updated while open) ---------- */
+  function start(data){
+    try{ if(data&&data.S&&data.S.solved&&data.S.solved.length===N) S=data.S; }catch(e){}
+    render();
+  }
+  try{
+    var hot=window.claude&&window.claude.hot;
+    if(hot&&hot.snapshot) hot.snapshot(function(){return {S:S}});
+    if(hot&&hot.ready) hot.ready(start); else start(hot&&hot.data?hot.data:{});
+  }catch(e){ start({}); }
+})();
+</script>
